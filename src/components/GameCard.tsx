@@ -9,7 +9,7 @@ interface GameCardProps {
   readonly inputRef: (node: HTMLInputElement | null) => void
   readonly onSelect: (gameId: string) => void
   readonly onReplay: (gameId: string) => void
-  readonly burstNonce: number
+  readonly reactionNonce: number
   readonly motionEnabled: boolean
 }
 
@@ -27,18 +27,6 @@ function ExternalArrow() {
   )
 }
 
-function Burst({ nonce }: { readonly nonce: number }) {
-  return (
-    <span className="game-card__burst" key={nonce} aria-hidden="true">
-      <span className="burst__ring" />
-      <span className="burst__word">GO!</span>
-      {Array.from({ length: 10 }, (_, index) => (
-        <span key={index} className="burst__spark" />
-      ))}
-    </span>
-  )
-}
-
 export function GameCard({
   game,
   index,
@@ -46,7 +34,7 @@ export function GameCard({
   inputRef,
   onSelect,
   onReplay,
-  burstNonce,
+  reactionNonce,
   motionEnabled,
 }: GameCardProps) {
   const inputId = `game-${game.id}`
@@ -77,7 +65,7 @@ export function GameCard({
   }
 
   function handleLabelClick() {
-    // Re-selecting the active cabinet is a tiny excuse for another burst.
+    // Re-selecting the active cabinet replays its illustration's little story.
     if (checked) {
       onReplay(game.id)
     }
@@ -104,7 +92,7 @@ export function GameCard({
 
       <label className="game-card__select" htmlFor={inputId} onClick={handleLabelClick}>
         <span className="game-card__art" aria-hidden="true">
-          <GameArtwork art={game.art} />
+          <GameArtwork art={game.art} reactionNonce={checked && motionEnabled ? reactionNonce : 0} />
           <span className="game-card__number">{cabinetNumber}</span>
           <span className="game-card__status">
             <span className="status-dot" />
@@ -145,8 +133,6 @@ export function GameCard({
           {checked ? 'READY' : '1P'}
         </span>
       </div>
-
-      {motionEnabled && burstNonce > 0 ? <Burst nonce={burstNonce} /> : null}
     </li>
   )
 }

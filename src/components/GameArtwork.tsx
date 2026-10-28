@@ -2,6 +2,7 @@ import type { GameArt } from '../data/games'
 
 interface GameArtworkProps {
   readonly art: GameArt
+  readonly reactionNonce: number
 }
 
 /**
@@ -9,10 +10,16 @@ interface GameArtworkProps {
  * Every scene is decorative: the radio label and Press Start link carry
  * the accessible names, so the artwork is hidden from assistive tech.
  */
-export function GameArtwork({ art }: GameArtworkProps) {
+export function GameArtwork({ art, reactionNonce }: GameArtworkProps) {
+  // Only moving groups remount on replay; SVG definitions and radio focus stay stable.
+  const reacting = reactionNonce > 0
+  const reactionProps = {
+    'data-reaction': reacting ? art : undefined,
+    'data-reaction-nonce': reacting ? reactionNonce : undefined,
+  }
   if (art === 'rush') {
     return (
-      <svg viewBox="0 0 400 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+      <svg {...reactionProps} viewBox="0 0 400 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
         <defs>
           <linearGradient id="rush-sky" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#ffd36e" />
@@ -97,34 +104,38 @@ export function GameArtwork({ art }: GameArtworkProps) {
 
         <g transform="translate(110 104)">
           <ellipse cx="104" cy="92" rx="92" ry="9" fill="#08040e" opacity="0.45" />
-          <g stroke="#ffe968" strokeWidth="4" strokeLinecap="round" opacity="0.9">
-            <path d="M-48 36h34M-58 50h24M-38 64h30" />
-            <path d="M-34 24h18" opacity="0.55" />
+          <g key={`streak-${reactionNonce}`} className="artwork__rush-streak">
+            <g stroke="#ffe968" strokeWidth="4" strokeLinecap="round" opacity="0.9">
+              <path d="M-48 36h34M-58 50h24M-38 64h30" />
+              <path d="M-34 24h18" opacity="0.55" />
+            </g>
           </g>
 
-          <circle cx="34" cy="78" r="20" fill="#120a1c" stroke="#ffb703" strokeWidth="3" />
-          <circle cx="34" cy="78" r="6" fill="#ff9ec4" />
-          <circle cx="166" cy="78" r="20" fill="#120a1c" stroke="#ffb703" strokeWidth="3" />
-          <circle cx="166" cy="78" r="6" fill="#ff9ec4" />
+          <g key={reactionNonce} className="artwork__bike">
+            <circle cx="34" cy="78" r="20" fill="#120a1c" stroke="#ffb703" strokeWidth="3" />
+            <circle cx="34" cy="78" r="6" fill="#ff9ec4" />
+            <circle cx="166" cy="78" r="20" fill="#120a1c" stroke="#ffb703" strokeWidth="3" />
+            <circle cx="166" cy="78" r="6" fill="#ff9ec4" />
 
-          <path d="M34 78L74 46l30 32M74 46l58 32M74 46l22-16" fill="none" stroke="#fff4e3" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M96 62l16-18 42 4" fill="none" stroke="#ffc44d" strokeWidth="4" strokeLinecap="round" />
-          <path d="M144 34l18 2 8 42" fill="none" stroke="#fff4e3" strokeWidth="4" strokeLinecap="round" />
+            <path d="M34 78L74 46l30 32M74 46l58 32M74 46l22-16" fill="none" stroke="#fff4e3" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M96 62l16-18 42 4" fill="none" stroke="#ffc44d" strokeWidth="4" strokeLinecap="round" />
+            <path d="M144 34l18 2 8 42" fill="none" stroke="#fff4e3" strokeWidth="4" strokeLinecap="round" />
 
-          <path d="M58 46c8-16 26-22 42-14 8 4 12 12 12 22l-17 7-27-2z" fill="url(#rush-bike)" />
-          <path d="M62 45l12 7 3 14-10 4-8-13z" fill="#2b1136" opacity="0.9" />
-          <path d="M94 54l24 6 8 15-14 2-13-10z" fill="#ff7a59" />
+            <path d="M58 46c8-16 26-22 42-14 8 4 12 12 12 22l-17 7-27-2z" fill="url(#rush-bike)" />
+            <path d="M62 45l12 7 3 14-10 4-8-13z" fill="#2b1136" opacity="0.9" />
+            <path d="M94 54l24 6 8 15-14 2-13-10z" fill="#ff7a59" />
 
-          <path d="M82 38c-4-13 4-25 16-27 12-2 22 7 22 19" fill="none" stroke="#2b1136" strokeWidth="11" strokeLinecap="round" />
-          <circle cx="108" cy="18" r="13" fill="#ffc44d" stroke="#2b1136" strokeWidth="3" />
-          <path d="M99 20c6 4 13 3 18-2" stroke="#2b1136" strokeWidth="4" strokeLinecap="round" fill="none" />
-          <path d="M108 5c1-5 6-8 10-7" stroke="#ff4fa3" strokeWidth="3" strokeLinecap="round" fill="none" />
+            <path d="M82 38c-4-13 4-25 16-27 12-2 22 7 22 19" fill="none" stroke="#2b1136" strokeWidth="11" strokeLinecap="round" />
+            <circle cx="108" cy="18" r="13" fill="#ffc44d" stroke="#2b1136" strokeWidth="3" />
+            <path d="M99 20c6 4 13 3 18-2" stroke="#2b1136" strokeWidth="4" strokeLinecap="round" fill="none" />
+            <path d="M108 5c1-5 6-8 10-7" stroke="#ff4fa3" strokeWidth="3" strokeLinecap="round" fill="none" />
 
-          <path d="M80 42l-14 28 8 9" fill="none" stroke="#fff4e3" strokeWidth="5" strokeLinecap="round" />
-          <path d="M100 55l10 21" stroke="#fff4e3" strokeWidth="5" strokeLinecap="round" />
+            <path d="M80 42l-14 28 8 9" fill="none" stroke="#fff4e3" strokeWidth="5" strokeLinecap="round" />
+            <path d="M100 55l10 21" stroke="#fff4e3" strokeWidth="5" strokeLinecap="round" />
 
-          <circle cx="188" cy="49" r="8" fill="#fff7c2" />
-          <path d="M188 49l48-16 22 6-40 22z" fill="#fff7c2" opacity="0.26" />
+            <circle cx="188" cy="49" r="8" fill="#fff7c2" />
+            <path d="M188 49l48-16 22 6-40 22z" fill="#fff7c2" opacity="0.26" />
+          </g>
         </g>
 
         <rect width="400" height="220" fill="url(#rush-sky)" opacity="0.06" />
@@ -134,7 +145,7 @@ export function GameArtwork({ art }: GameArtworkProps) {
 
   if (art === 'boju') {
     return (
-      <svg viewBox="0 0 400 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+      <svg {...reactionProps} viewBox="0 0 400 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
         <defs>
           <linearGradient id="boju-sky" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#123f34" />
@@ -185,17 +196,19 @@ export function GameArtwork({ art }: GameArtworkProps) {
           <path d="M3 52c0-11 9-20 20-20h13c11 0 20 9 20 20v43H3z" fill="url(#boju-wall)" stroke="#b6ffd4" strokeWidth="2.6" />
           <path d="M6 46l18 11 16-12 16 10" fill="none" stroke="#b6ffd4" strokeWidth="2" opacity="0.8" />
 
-          <circle cx="23" cy="27" r="14" fill="#6b3b2a" />
-          <path d="M10 25c2-11 10-16 20-14 7 2 10 8 10 16-5-3-9-5-15-5-6 0-10 1-15 3z" fill="#24110c" />
-          <g fill="#fff4e3">
-            <circle cx="19" cy="28" r="2.6" />
-            <circle cx="29" cy="28" r="2.6" />
+          <g key={reactionNonce} className="artwork__head">
+            <circle cx="23" cy="27" r="14" fill="#6b3b2a" />
+            <path d="M10 25c2-11 10-16 20-14 7 2 10 8 10 16-5-3-9-5-15-5-6 0-10 1-15 3z" fill="#24110c" />
+            <g fill="#fff4e3">
+              <circle cx="19" cy="28" r="2.6" />
+              <circle cx="29" cy="28" r="2.6" />
+            </g>
+            <g className="artwork__pupils" fill="#0a0412">
+              <circle cx="19.5" cy="28" r="1.2" />
+              <circle cx="29.5" cy="28" r="1.2" />
+            </g>
+            <path d="M21 35c2 1.5 4 1.5 6 0" stroke="#fff4e3" strokeWidth="1.5" strokeLinecap="round" />
           </g>
-          <g fill="#0a0412">
-            <circle cx="19.5" cy="28" r="1.2" />
-            <circle cx="29.5" cy="28" r="1.2" />
-          </g>
-          <path d="M21 35c2 1.5 4 1.5 6 0" stroke="#fff4e3" strokeWidth="1.5" strokeLinecap="round" />
 
           <path d="M8 58l-8 24 5 18" fill="none" stroke="url(#boju-wall)" strokeWidth="10" strokeLinecap="round" />
           <path d="M7 58l9 22 5 19" fill="none" stroke="#b6ffd4" strokeWidth="1.6" opacity="0.45" />
@@ -246,7 +259,7 @@ export function GameArtwork({ art }: GameArtworkProps) {
   }
 
   return (
-    <svg viewBox="0 0 400 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+    <svg {...reactionProps} viewBox="0 0 400 220" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
       <defs>
         <linearGradient id="job-sky" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor="#0b1f3a" />
@@ -322,16 +335,18 @@ export function GameArtwork({ art }: GameArtworkProps) {
 
       <path d="M48 202c44-24 102-58 208-92" fill="none" stroke="#c9ff4a" strokeWidth="2" strokeDasharray="3 7" strokeLinecap="round" opacity="0.85" />
 
-      <g transform="translate(150 72) rotate(-13)">
-        <rect x="0" y="0" width="74" height="52" rx="4" fill="#fff4e3" stroke="#0b1f3a" strokeWidth="2.5" />
-        <rect x="10" y="10" width="23" height="12" rx="2" fill="#55e7ff" opacity="0.8" />
-        <text x="47" y="21" textAnchor="middle" fontFamily="ui-monospace, monospace" fontSize="11" fontWeight="700" fill="#0b1f3a">
-          CV
-        </text>
-        <g stroke="#0b1f3a" strokeWidth="2" strokeLinecap="round" opacity="0.55">
-          <path d="M10 30h54M10 38h48M10 46h30" />
+      <g key={reactionNonce} className="artwork__cv">
+        <g transform="translate(150 72) rotate(-13)">
+          <rect x="0" y="0" width="74" height="52" rx="4" fill="#fff4e3" stroke="#0b1f3a" strokeWidth="2.5" />
+          <rect x="10" y="10" width="23" height="12" rx="2" fill="#55e7ff" opacity="0.8" />
+          <text x="47" y="21" textAnchor="middle" fontFamily="ui-monospace, monospace" fontSize="11" fontWeight="700" fill="#0b1f3a">
+            CV
+          </text>
+          <g stroke="#0b1f3a" strokeWidth="2" strokeLinecap="round" opacity="0.55">
+            <path d="M10 30h54M10 38h48M10 46h30" />
+          </g>
+          <path d="M64 6l6 6-8 8-6-2z" fill="#ffc44d" stroke="#0b1f3a" strokeWidth="1.5" />
         </g>
-        <path d="M64 6l6 6-8 8-6-2z" fill="#ffc44d" stroke="#0b1f3a" strokeWidth="1.5" />
       </g>
 
       <g stroke="#c9ff4a" strokeWidth="3" strokeLinecap="round" opacity="0.8">

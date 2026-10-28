@@ -80,7 +80,7 @@ describe('Whimsical Arcade', () => {
     const user = userEvent.setup()
     render(<App />)
 
-    expect(document.querySelector('.game-card__burst')).toBeNull()
+    expect(document.querySelector('[data-reaction]')).toBeNull()
 
     const bojuRadio = getRadio(1)
     await user.click(bojuRadio)
@@ -92,7 +92,7 @@ describe('Whimsical Arcade', () => {
     expect(screen.getByRole('status')).toHaveTextContent(
       'Boju Boju by 99PlusOne selected. Press Start to play.',
     )
-    expect(document.querySelectorAll('.game-card__burst')).toHaveLength(1)
+    expect(document.querySelectorAll('[data-reaction]')).toHaveLength(1)
   })
 
   it('supports touch-style selection by tapping the card content', async () => {
@@ -108,7 +108,7 @@ describe('Whimsical Arcade', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Job Hunt by Raji selected')
   })
 
-  it('replays the celebration when the selected cabinet is tapped again', async () => {
+  it('replays the illustration reaction when the selected cabinet is tapped again', async () => {
     const user = userEvent.setup()
     render(<App />)
 
@@ -117,14 +117,17 @@ describe('Whimsical Arcade', () => {
     const title = within(card as HTMLElement).getByText('Lagos Bike Rush')
 
     await user.click(title)
-    const firstBurst = card?.querySelector('.game-card__burst')
-    expect(firstBurst).not.toBeNull()
+    const firstReaction = card?.querySelector('.artwork__bike')
+    expect(firstReaction).not.toBeNull()
+    expect(card?.querySelector('[data-reaction]')).toHaveAttribute('data-reaction', 'rush')
+    expect(card?.querySelector('[data-reaction]')).toHaveAttribute('data-reaction-nonce', '1')
 
     await user.click(title)
-    const secondBurst = card?.querySelector('.game-card__burst')
+    const secondReaction = card?.querySelector('.artwork__bike')
 
-    expect(secondBurst).not.toBeNull()
-    expect(secondBurst).not.toBe(firstBurst)
+    expect(secondReaction).not.toBeNull()
+    expect(secondReaction).not.toBe(firstReaction)
+    expect(card?.querySelector('[data-reaction]')).toHaveAttribute('data-reaction-nonce', '2')
   })
 
   it('uses wrapping arrow navigation plus Home and End, and keeps the selected Press Start tabbable', async () => {
@@ -236,7 +239,7 @@ describe('Whimsical Arcade', () => {
     }
   })
 
-  it('skips the selection burst when reduced motion is requested', async () => {
+  it('skips every selection reaction when reduced motion is requested', async () => {
     installMatchMedia(true)
     const user = userEvent.setup()
     render(<App />)
@@ -244,26 +247,97 @@ describe('Whimsical Arcade', () => {
     expect(screen.getByRole('main')).toHaveAttribute('data-motion', 'reduced')
     expect(document.querySelector('.page')).toHaveAttribute('data-ambient', 'paused')
 
-    await user.click(getRadio(2))
-    expect(getRadio(2)).toBeChecked()
-    expect(document.querySelector('.game-card__burst')).toBeNull()
+    for (const [index, game] of GAMES.entries()) {
+      await user.click(getRadio(index))
+      await user.click(screen.getByText(game.title, { selector: '.game-card__title' }))
+      expect(getRadio(index)).toBeChecked()
+      expect(document.querySelector('[data-reaction]')).toBeNull()
+    }
     expect(screen.getByRole('status')).toHaveTextContent('Job Hunt by Raji selected')
   })
 
-  it('reacts when reduced motion is enabled after a burst has played', async () => {
+  it('cancels a reaction when reduced motion is enabled and discards its token', async () => {
     const media = installMatchMedia(false)
     const user = userEvent.setup()
     render(<App />)
 
     await user.click(getRadio(1))
-    expect(document.querySelector('.game-card__burst')).not.toBeNull()
+    expect(document.querySelector('[data-reaction]')).not.toBeNull()
 
     act(() => {
       media.setMatches(true)
     })
 
     expect(screen.getByRole('main')).toHaveAttribute('data-motion', 'reduced')
-    expect(document.querySelector('.game-card__burst')).toBeNull()
+    expect(document.querySelector('[data-reaction]')).toBeNull()
+
+    act(() => {
+      media.setMatches(false)
+    })
+
+    expect(screen.getByRole('main')).toHaveAttribute('data-motion', 'full')
+    expect(document.querySelector('[data-reaction]')).toBeNull()
+    expect(getRadio(1)).toBeChecked()
+    await user.click(screen.getByText('Boju Boju', { selector: '.game-card__title' }))
+    expect(document.querySelector('[data-reaction]')).toHaveAttribute('data-reaction', 'boju')
+  })
+
+  it('does not react on load or focus, and selects each scene exactly once without remounting controls', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    const radios = GAMES.map((_, index) => getRadio(index))
+    const artwork = [...document.querySelectorAll('.game-card__art svg')]
+    const definitions = artwork.map((svg) => svg.querySelector('defs'))
+
+    expect(document.querySelector('[data-reaction]')).toBeNull()
+    radios[0].focus()
+    expect(document.querySelector('[data-reaction]')).toBeNull()
+
+    for (const [index, game] of GAMES.entries()) {
+      await user.click(screen.getByText(game.title, { selector: '.game-card__title' }))
+      expect(document.querySelectorAll('[data-reaction]')).toHaveLength(1)
+      expect(artwork[index]).toHaveAttribute('data-reaction', game.art)
+      expect(artwork[index]).toHaveAttribute('data-reaction-nonce', String(index + 1))
+      expect(getRadio(index)).toBe(radios[index])
+      expect(radios[index]).toBeChecked()
+      expect(artwork[index].querySelector('defs')).toBe(definitions[index])
+      expect(document.querySelectorAll('.game-card__burst')).toHaveLength(0)
+    }
+  })
+
+  it('cancels the previous scene on rapid keyboard selection and preserves radio focus', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+    const firstBike = document.querySelector('.artwork__bike')
+    getRadio(0).focus()
+    await user.keyboard('{ArrowRight}{ArrowRight}{Home}{End}')
+
+    expect(getRadio(2)).toHaveFocus()
+    expect(getRadio(2)).toBeChecked()
+    expect(document.querySelectorAll('[data-reaction]')).toHaveLength(1)
+    expect(document.querySelector('[data-reaction]')).toHaveAttribute('data-reaction', 'job')
+    expect(document.querySelector('.artwork__bike')).not.toBe(firstBike)
+    expect(getRadio(0).closest('li')?.querySelector('svg')).not.toHaveAttribute('data-reaction')
+    expect(getRadio(1).closest('li')?.querySelector('svg')).not.toHaveAttribute('data-reaction')
+  })
+
+  it('keeps Press Start immediately usable without replaying the active reaction', async () => {
+    const user = userEvent.setup()
+    const clicks = trackClicksWithoutNavigating()
+    render(<App />)
+
+    try {
+      await user.click(screen.getByText('Job Hunt', { selector: '.game-card__title' }))
+      const cv = document.querySelector('.artwork__cv')
+      const token = document.querySelector('[data-reaction]')?.getAttribute('data-reaction-nonce')
+      await user.click(getStartLinks()[2])
+      expect(clicks.clickedUrls).toEqual([GAMES[2].url])
+      expect(document.querySelector('.artwork__cv')).toBe(cv)
+      expect(document.querySelector('[data-reaction]')).toHaveAttribute('data-reaction-nonce', token)
+      expect(getRadio(2)).toBeChecked()
+    } finally {
+      clicks.stop()
+    }
   })
 
   it('falls back to full motion when matchMedia is unavailable', () => {

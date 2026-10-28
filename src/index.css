@@ -1073,129 +1073,91 @@
   color: var(--accent);
 }
 
-/* ------------------------------------------------------------- select burst */
+/* ------------------------------------------------------ selection reactions */
 
-.game-card__burst {
-  position: absolute;
-  inset: 0;
-  z-index: 9;
-  overflow: hidden;
-  border-radius: inherit;
-  pointer-events: none;
+/* Animate untransformed groups, leaving placement, root hover scale and card tilt alone. */
+.artwork__rush-streak,
+.artwork__head,
+.artwork__cv {
+  transform-box: fill-box;
 }
 
-.burst__ring {
-  position: absolute;
-  top: 40%;
-  left: 50%;
-  width: 34px;
-  height: 34px;
-  transform: translate(-50%, -50%);
-  border: 3px solid var(--accent);
-  border-radius: 50%;
-  opacity: 0;
-  animation: burst-ring 0.62s cubic-bezier(0.1, 0.7, 0.2, 1) forwards;
+.artwork__rush-streak {
+  transform-origin: right center;
 }
 
-.burst__word {
-  position: absolute;
-  top: 40%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  color: var(--color-cream);
-  font-family: var(--font-pixel);
-  font-size: 0.62rem;
-  letter-spacing: 0.08em;
-  opacity: 0;
-  text-shadow:
-    0 0 10px var(--accent),
-    0 0 24px var(--accent-soft);
-  animation: burst-word 0.55s cubic-bezier(0.1, 0.8, 0.2, 1.2) forwards;
+.artwork__head {
+  transform-origin: center bottom;
 }
 
-.burst__spark {
-  position: absolute;
-  top: 40%;
-  left: 50%;
-  width: var(--spark-size, 6px);
-  height: var(--spark-size, 6px);
-  border-radius: 1px;
-  background: var(--accent);
-  opacity: 0;
-  animation: burst-spark 0.68s cubic-bezier(0.1, 0.7, 0.2, 1) var(--spark-delay, 0s) forwards;
+.artwork__cv {
+  transform-origin: center;
 }
 
-.burst__spark:nth-child(2n) {
-  background: var(--accent-2);
-  border-radius: 50%;
+/* One event token, one finite story. No fill mode: rest is the original SVG. */
+@media (prefers-reduced-motion: no-preference) {
+  [data-reaction="rush"] .artwork__bike {
+    animation: bike-scoot 650ms ease-in-out;
+  }
+
+  [data-reaction="rush"] .artwork__rush-streak {
+    animation: bike-streak 650ms ease-in-out;
+  }
+
+  [data-reaction="boju"] .artwork__head {
+    animation: shy-peek 800ms ease-in-out;
+  }
+
+  [data-reaction="boju"] .artwork__pupils {
+    animation: shy-glance 800ms ease-in-out;
+  }
+
+  [data-reaction="job"] .artwork__cv {
+    animation: cv-near-miss 900ms ease-in-out;
+  }
 }
 
-.burst__spark:nth-child(3n) {
-  clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%);
-  border-radius: 0;
+@keyframes bike-scoot {
+  0%, 100% { transform: translate(0, 0); }
+  18% { transform: translate(-2px, 0); }
+  48% { transform: translate(14px, -1px); }
+  72% { transform: translate(10px, 0); }
 }
 
-.burst__spark:nth-child(3) {
-  --spark-size: 7px;
-  --spark-delay: 0.01s;
-  --burst-x: -72px;
-  --burst-y: -54px;
+@keyframes bike-streak {
+  0%, 18%, 100% { transform: scaleX(1); opacity: 1; }
+  48% { transform: scaleX(1.35); opacity: 0.65; }
+  72% { transform: scaleX(1.15); opacity: 0.85; }
 }
 
-.burst__spark:nth-child(4) {
-  --spark-size: 5px;
-  --spark-delay: 0.04s;
-  --burst-x: 68px;
-  --burst-y: -62px;
+@keyframes shy-peek {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  32%, 58% { transform: translate(-1.5px, -1px) rotate(-10deg); }
+  78% { transform: translate(-0.5px, 0) rotate(-3deg); }
 }
 
-.burst__spark:nth-child(5) {
-  --spark-size: 6px;
-  --spark-delay: 0.02s;
-  --burst-x: -96px;
-  --burst-y: 10px;
+@keyframes shy-glance {
+  0%, 28%, 78%, 100% { transform: translateX(0); }
+  40%, 58% { transform: translateX(-0.7px); }
 }
 
-.burst__spark:nth-child(6) {
-  --spark-size: 4px;
-  --spark-delay: 0.06s;
-  --burst-x: 92px;
-  --burst-y: 18px;
+@keyframes cv-near-miss {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  12% { transform: translate(-3px, 2px) rotate(-3deg); }
+  36% { transform: translate(32px, -16px) rotate(8deg); }
+  53%, 60% { transform: translate(54px, 18px) rotate(20deg); }
+  78% { transform: translate(24px, 18px) rotate(-8deg); }
 }
 
-.burst__spark:nth-child(7) {
-  --spark-size: 7px;
-  --spark-delay: 0.03s;
-  --burst-x: -42px;
-  --burst-y: 72px;
+/* CSS guards cancel immediately, including before the React subscription updates. */
+@media (prefers-reduced-motion: reduce) {
+  .game-card__art svg [class^="artwork__"] {
+    animation: none;
+  }
 }
 
-.burst__spark:nth-child(8) {
-  --spark-size: 5px;
-  --spark-delay: 0.05s;
-  --burst-x: 52px;
-  --burst-y: 68px;
-}
-
-.burst__spark:nth-child(9) {
-  --spark-size: 4px;
-  --spark-delay: 0s;
-  --burst-x: -18px;
-  --burst-y: -86px;
-}
-
-.burst__spark:nth-child(10) {
-  --spark-size: 6px;
-  --spark-delay: 0.07s;
-  --burst-x: 6px;
-  --burst-y: 88px;
-}
-
-.burst__spark:nth-child(11) {
-  --spark-size: 5px;
-  --spark-delay: 0.02s;
-  --burst-x: 106px;
-  --burst-y: -16px;
+[data-motion="reduced"] .game-card__art svg [class^="artwork__"] {
+  animation: none;
 }
 
 /* ----------------------------------------------------------------- controls */
@@ -1488,51 +1450,6 @@
   }
 }
 
-@keyframes burst-ring {
-  0% {
-    opacity: 0.9;
-    transform: translate(-50%, -50%) scale(0.4);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(4.2);
-  }
-}
-
-@keyframes burst-word {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.6);
-  }
-  25% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1.1);
-  }
-  65% {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-  100% {
-    opacity: 0;
-    transform: translate(-50%, -90%) scale(0.95);
-  }
-}
-
-@keyframes burst-spark {
-  0% {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.4) rotate(0deg);
-  }
-  12% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-    transform: translate(calc(-50% + var(--burst-x)), calc(-50% + var(--burst-y))) scale(0.15)
-      rotate(160deg);
-  }
-}
-
 @media (prefers-reduced-motion: no-preference) {
   .reveal {
     animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.3, 1) both;
@@ -1631,10 +1548,6 @@
     transform: none;
   }
 
-  .game-card__burst {
-    display: none;
-  }
-
   .bulb,
   .spark {
     animation: none;
@@ -1659,10 +1572,6 @@
 
 [data-motion="reduced"] .game-card {
   transform: none !important;
-}
-
-[data-motion="reduced"] .game-card__burst {
-  display: none;
 }
 
 /*

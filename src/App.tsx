@@ -61,10 +61,11 @@ export default function App() {
   const prefersReducedMotion = usePrefersReducedMotion()
   const [selectedId, setSelectedId] = useState(GAMES[0].id)
   const [announcement, setAnnouncement] = useState('')
-  const [burst, setBurst] = useState<{ readonly id: string; readonly nonce: number } | null>(null)
+  const [reaction, setReaction] = useState<{ readonly id: string; readonly nonce: number } | null>(null)
+  const [lastMotionPreference, setLastMotionPreference] = useState(prefersReducedMotion)
   const [ambientStopped, setAmbientStopped] = useState(false)
   const radioRefs = useRef<Array<HTMLInputElement | null>>([])
-  const burstCount = useRef(0)
+  const reactionCount = useRef(0)
 
   const selectedGame = GAMES.find((game) => game.id === selectedId) ?? GAMES[0]
   const ambientPaused = prefersReducedMotion || ambientStopped
@@ -79,14 +80,20 @@ export default function App() {
     }
   }, [])
 
-  const triggerBurst = useCallback(
+  // Invalidate before commit on either preference change: never resurrect an old event.
+  if (lastMotionPreference !== prefersReducedMotion) {
+    setLastMotionPreference(prefersReducedMotion)
+    setReaction(null)
+  }
+
+  const triggerReaction = useCallback(
     (gameId: string) => {
       if (prefersReducedMotion) {
         return
       }
 
-      burstCount.current += 1
-      setBurst({ id: gameId, nonce: burstCount.current })
+      reactionCount.current += 1
+      setReaction({ id: gameId, nonce: reactionCount.current })
     },
     [prefersReducedMotion],
   )
@@ -100,9 +107,9 @@ export default function App() {
 
       setSelectedId(gameId)
       setAnnouncement(`${game.title} by ${game.creator} selected. Press Start to play.`)
-      triggerBurst(gameId)
+      triggerReaction(gameId)
     },
-    [triggerBurst],
+    [triggerReaction],
   )
 
   function handlePickerKeyDown(event: KeyboardEvent<HTMLFieldSetElement>) {
@@ -286,8 +293,8 @@ export default function App() {
                         radioRefs.current[index] = node
                       }}
                       onSelect={selectGame}
-                      onReplay={triggerBurst}
-                      burstNonce={burst?.id === game.id ? burst.nonce : 0}
+                      onReplay={triggerReaction}
+                      reactionNonce={reaction?.id === game.id ? reaction.nonce : 0}
                       motionEnabled={!prefersReducedMotion}
                     />
                   ))}

@@ -30,7 +30,7 @@ The baseline was captured on 28 October 2026 and is kept for comparison only. No
 | Light catalogue grid with many games | Dark arcade-cabinet shell with exactly three curated cabinets |
 | Card thumbnail supplied by Start.ng | Original inline SVG scene drawn for each game |
 | Separate Play / View / Leaderboard links | One clear **Press Start** action per cabinet |
-| No persistent selection treatment | Selected cabinet lights up, changes status, announces itself and shows a “GO!” burst |
+| No persistent selection treatment | Selected cabinet lights up, changes status, announces itself and plays its own illustration reaction |
 | Mouse-first browsing | Radio-group selection with wrapping arrow keys, Home/End, touch and pointer support |
 | Standard page chrome | Marquee, cabinet bulbs, joystick, player readout and pixel typography |
 
@@ -55,9 +55,9 @@ Titles, creators and URLs were checked against the live Start.ng listing on **28
   - *Lagos Bike Rush* — a rider threading a danfo, bus and skyline at sunset.
   - *Boju Boju* — a patterned compound, a hiding player and an egungun masquerade.
   - *Job Hunt* — a CV sailing through a hoop above a night basketball court.
-- **A selected state you cannot miss.** Selection changes the border, glow, status chip, cabinet footer label, the “Now selected” readout and, when motion is allowed, fires a short CSS-only “GO!” burst. The state is also exposed through the native radio.
+- **A selected state you cannot miss.** Selection changes the border, glow, status chip, cabinet footer label and the “Now selected” readout. When motion is allowed, the bike scoots, the hidden player peeks, or the CV attempts a near-miss shot. The state is also exposed through the native radio.
 - **Retro type, modern body copy.** Press Start 2P is reserved for small pixel labels; Space Grotesk carries the headings and descriptions so the cards remain readable.
-- **Restrained motion.** Lift, tilt, marquee, bulbs and the selection burst are all CSS. There is no canvas, particle engine or audio.
+- **Restrained motion.** Lift, tilt, marquee, bulbs and finite SVG selection reactions are all CSS. There is no canvas, particle engine or audio.
 
 Palette: near-black purple (`#0a0412`), cream (`#fff4e3`), lime (`#c9ff4a`), pink (`#ff4fa3`), cyan (`#55e7ff`) and gold (`#ffc44d`).
 
@@ -65,10 +65,11 @@ Palette: near-black purple (`#0a0412`), cream (`#fff4e3`), lime (`#c9ff4a`), pin
 
 - **Hover (mouse/fine pointer):** the card lifts, tilts slightly toward the pointer and follows it with a soft spotlight.
 - **Click or tap:** selects the cabinet, updates every selected treatment and announces the choice through a polite live region.
-- **Re-select:** tapping the already-selected cabinet replays the burst — a small “one more go” flourish.
+- **Selection reaction:** Lagos Bike Rush anticipates, scoots and settles in 650ms; Boju Boju gives a shy head peek and pupil glance in 800ms; Job Hunt sends its CV on a near-miss arc and back in 900ms. There is no reaction on initial load or focus. Switching cabinets cancels the previous reaction.
+- **Re-select:** tapping the already-selected cabinet replays its illustration reaction — a small “one more go” flourish.
 - **Press Start:** opens that cabinet’s live game in a new tab with `rel="noopener noreferrer"`.
 - **Keyboard:** Tab enters the radio group; arrow keys move and select with wrapping; Home/End jump to the first/last cabinet. Tab then moves to the **selected** cabinet’s Press Start link, and Enter launches it. Unselected Press Start links are removed from the tab order.
-- **Reduced motion:** the marquee, bulb blink, sparks, hover lift/tilt, entrance reveals and selection burst are all disabled. The preference is read live, so changing it mid-session takes effect immediately.
+- **Reduced motion:** the marquee, bulb blink, sparks, hover lift/tilt, entrance reveals and selection reactions are all disabled. The preference is read live, so changing it mid-session cancels a reaction immediately. Restoring motion does not replay an old reaction.
 - **Ambient motion timeout:** the decorative marquee, blinking bulbs, pulsing status dots and floating sparks automatically stop after 4.5 seconds. Selection, hover and short interaction animations continue to work.
 - **Touch:** tapping the card body selects it; pointer tilt only runs for mouse input.
 
@@ -118,11 +119,11 @@ npm run check     # lint + typecheck + test + build
 ```text
 lint       oxlint: passed
 typecheck  tsc -b: passed
-test       2 files, 18 tests passed
+test       2 files, 21 tests passed
 build      vite build: passed
 ```
 
-The 18 tests cover:
+The 21 tests cover:
 
 - exactly three approved games, creators and URLs;
 - unique, correctly shaped Start.ng links and required card content;
@@ -130,13 +131,15 @@ The 18 tests cover:
 - correct `href`, `target="_blank"` and `rel` on every Press Start;
 - pointer selection, selected-card styling and live announcement;
 - touch-style tap on card content;
-- burst replay when the selected card is tapped again;
+- illustration replay when the selected card is tapped again;
+- no reaction on load or focus, one event per selection, and stable SVG definitions and radio controls;
+- previous-reaction cancellation during keyboard selection and immediate Press Start without replay;
 - wrapping arrow navigation, Home/End and the roving Press Start tab stop;
 - launching the selected game with Enter;
 - every Press Start URL;
 - the named fieldset, shared instructions and skip link;
 - ambient motion stopping within five seconds;
-- reduced motion at load, live reduced-motion changes and a `matchMedia`-less fallback.
+- reduced motion at load, live cancellation, no stale replay when motion returns, and a `matchMedia`-less fallback.
 
 ### Browser checks
 
@@ -154,6 +157,8 @@ Playwright was used against the local production preview at **1440px, 768px and 
 
 ## Screenshots and evidence
 
+These screenshots document the original release, before game-specific selection reactions replaced the generic burst.
+
 | Screenshot | What it shows |
 | --- | --- |
 | [`startng-community-games-baseline.png`](docs/screenshots/startng-community-games-baseline.png) | Original Start.ng community games section |
@@ -170,8 +175,8 @@ Additional reduced-motion, touch, focus and accessibility-snapshot evidence is s
 src/
   App.tsx                        page shell, radio state, keyboard logic, live region
   components/
-    GameCard.tsx                 selectable cabinet, Press Start, tilt and burst
-    GameArtwork.tsx              three original inline SVG scenes
+    GameCard.tsx                 selectable cabinet, Press Start, tilt and reaction gating
+    GameArtwork.tsx              three original inline SVG scenes and keyed moving groups
   data/
     games.ts                     single source of truth for the three games
     games.test.ts                catalogue and link validation
