@@ -1,0 +1,8 @@
+.codex/
+.git/
+.env*
+node_modules/
+coverage/
+.playwright-mcp/
+docs/
+dist/
