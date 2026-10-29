@@ -15,6 +15,9 @@ coverage
 
 # Task reports and local agent notes
 .codex/
+.qoder/
+.freebuff/
+.agents/
 
 # Local environment files
 .env
@@ -37,5 +40,3 @@ coverage
 
 # Playwright MCP artifacts
 .playwright-mcp/
-.vercel
-.env*

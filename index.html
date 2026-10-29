@@ -6,16 +6,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       name="description"
-      content="Start.ng Whimsical Arcade — three hand-picked browser games from the Start.ng community. Pick a cabinet and play free, no downloads."
+      content="Games made by builders in the community. Pick one and play free in your browser, no downloads. start.ng is Nigeria's home for browser games."
     />
-    <meta name="theme-color" content="#0a0412" />
-    <meta property="og:title" content="Start.ng Whimsical Arcade" />
+    <meta name="theme-color" content="#f6f5ee" />
+    <script>
+      try {
+        var storedTheme = localStorage.getItem('theme')
+        if (storedTheme === 'dark' || storedTheme === 'light') {
+          document.documentElement.dataset.theme = storedTheme
+        }
+      } catch (error) {}
+    </script>
+    <meta property="og:title" content="start.ng · Good vibes. Good games." />
     <meta
       property="og:description"
-      content="Three hand-picked browser games from the Start.ng community. Pick a cabinet and play."
+      content="Games made by builders in the community. Pick one and play free in your browser, no downloads."
     />
     <meta property="og:type" content="website" />
-    <title>Start.ng Whimsical Arcade — Pick a cabinet, play free</title>
+    <title>start.ng · Good vibes. Good games.</title>
   </head>
   <body>
     <div id="root"></div>
