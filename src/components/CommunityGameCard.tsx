@@ -13,10 +13,35 @@ import { CoverArt } from './CoverArt'
 /** Touch shows the same reaction briefly; mouse and keyboard hold it while active. */
 const TOUCH_PEEK_MS = 900
 
-export function CommunityGameCard({ game }: { readonly game: CommunityGame }) {
+/** The hero "wave" staggers a brief peek across every community card. */
+const WAVE_STAGGER_MS = 110
+const WAVE_HOLD_MS = 1000
+
+/** Featured cards greet visitors the moment their card scrolls into view. */
+const ASSISTED_REVEAL_HOLD_MS = 1600
+
+export function CommunityGameCard({
+  game,
+  index = 0,
+  waveNonce = 0,
+  revealOnce = false,
+}: {
+  readonly game: CommunityGame
+  readonly index?: number
+  /** Bump to play a one-off staggered peek across all cards. 0 = never played. */
+  readonly waveNonce?: number
+  /** Greet one assisted peek when the featured card first enters the viewport. */
+  readonly revealOnce?: boolean
+}) {
   const prefersReducedMotion = usePrefersReducedMotion()
   const [peek, setPeek] = useState({ active: false, reduced: prefersReducedMotion })
   const timer = useRef<number | null>(null)
+  const cardRef = useRef<HTMLElement | null>(null)
+  const observerRef = useRef<IntersectionObserver | null>(null)
+  // The greeting fires once per page lifecycle, and any direct interaction
+  // with the card cancels it before it has had the chance to start.
+  const revealDoneRef = useRef(false)
+  const revealCancelledRef = useRef(false)
 
   let peeking = peek.active && !prefersReducedMotion
   if (peek.reduced !== prefersReducedMotion) {
@@ -39,14 +64,75 @@ export function CommunityGameCard({ game }: { readonly game: CommunityGame }) {
     }
   }, [clearTimer, prefersReducedMotion])
 
+  const cancelReveal = useCallback(() => {
+    revealCancelledRef.current = true
+    if (observerRef.current) {
+      observerRef.current.disconnect()
+      observerRef.current = null
+    }
+  }, [])
+
+  // One-time greeting when the featured card enters the viewport — not on a
+  // page-load timer, so it is visible when it plays. Cancelled the moment
+  // visitors interact themselves; skipped entirely for reduced motion.
+  useEffect(() => {
+    if (!revealOnce || prefersReducedMotion || revealDoneRef.current) {
+      return
+    }
+
+    const node = cardRef.current
+    if (!node) {
+      return
+    }
+
+    // Browsers without IntersectionObserver never get the unsolicited peek;
+    // visitors can still reveal the face themselves by interacting.
+    if (typeof window === 'undefined' || typeof window.IntersectionObserver === 'undefined') {
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) {
+          return
+        }
+        // Fire once, then stop watching entirely.
+        observer.disconnect()
+        observerRef.current = null
+
+        if (revealDoneRef.current || revealCancelledRef.current) {
+          return
+        }
+        revealDoneRef.current = true
+
+        clearTimer()
+        setPeek({ active: true, reduced: prefersReducedMotion })
+        timer.current = window.setTimeout(() => {
+          setPeek((current) => ({ ...current, active: false }))
+          timer.current = null
+        }, ASSISTED_REVEAL_HOLD_MS)
+      },
+      { threshold: 0.35 },
+    )
+
+    observerRef.current = observer
+    observer.observe(node)
+
+    return () => {
+      observer.disconnect()
+      observerRef.current = null
+    }
+  }, [revealOnce, prefersReducedMotion, clearTimer])
+
   const holdPeek = useCallback(() => {
     if (prefersReducedMotion) {
       return
     }
 
+    cancelReveal()
     clearTimer()
     setPeek({ active: true, reduced: prefersReducedMotion })
-  }, [clearTimer, prefersReducedMotion])
+  }, [cancelReveal, clearTimer, prefersReducedMotion])
 
   const endPeek = useCallback(() => {
     clearTimer()
@@ -58,19 +144,38 @@ export function CommunityGameCard({ game }: { readonly game: CommunityGame }) {
       return
     }
 
+    cancelReveal()
     clearTimer()
     setPeek({ active: true, reduced: prefersReducedMotion })
     timer.current = window.setTimeout(() => {
       setPeek((current) => ({ ...current, active: false }))
       timer.current = null
     }, TOUCH_PEEK_MS)
-  }, [clearTimer, prefersReducedMotion])
+  }, [cancelReveal, clearTimer, prefersReducedMotion])
 
   function handlePointerEnter(event: ReactPointerEvent<HTMLElement>) {
     if (event.pointerType !== 'touch') {
       holdPeek()
     }
   }
+
+  // Wave: a short, staggered peek across every community card.
+  useEffect(() => {
+    if (waveNonce === 0 || prefersReducedMotion) {
+      return
+    }
+
+    const show = window.setTimeout(() => {
+      clearTimer()
+      setPeek({ active: true, reduced: prefersReducedMotion })
+      timer.current = window.setTimeout(() => {
+        setPeek((current) => ({ ...current, active: false }))
+        timer.current = null
+      }, WAVE_HOLD_MS)
+    }, index * WAVE_STAGGER_MS)
+
+    return () => window.clearTimeout(show)
+  }, [waveNonce, index, prefersReducedMotion, clearTimer])
 
   function handlePointerLeave(event: ReactPointerEvent<HTMLElement>) {
     if (event.pointerType !== 'touch') {
@@ -99,6 +204,7 @@ export function CommunityGameCard({ game }: { readonly game: CommunityGame }) {
 
   return (
     <article
+      ref={cardRef}
       className={`game-tile${game.featured ? ' game-tile--featured' : ''}${peeking ? ' is-peeking' : ''}`}
       data-peeking={peeking ? 'true' : 'false'}
       onPointerEnter={handlePointerEnter}

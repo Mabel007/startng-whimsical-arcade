@@ -1172,21 +1172,21 @@ a {
 /* The one added interaction: a tiny face peeks over the cover on hover, focus or touch. */
 .peek-face {
   position: absolute;
-  bottom: -32px;
+  bottom: -40px;
   left: 50%;
   z-index: 3;
   display: flex;
   align-items: flex-start;
   justify-content: center;
-  gap: 7px;
-  width: 46px;
-  height: 32px;
-  border: 2px solid var(--lime-ink);
-  border-radius: 16px 16px 8px 8px;
+  gap: 10px;
+  width: 68px;
+  height: 42px;
+  border: 2.5px solid var(--lime-ink);
+  border-radius: 21px 21px 10px 10px;
   background: var(--lime);
   box-shadow: 0 3px 0 rgba(41, 42, 35, 0.18);
   opacity: 0;
-  padding-top: 8px;
+  padding-top: 11px;
   pointer-events: none;
   transform: translate(-50%, 0) scale(0.92);
   transition:
@@ -1194,28 +1194,53 @@ a {
     opacity 0.16s ease;
 }
 
+/* Reduced-motion static hint copy: hidden in the default motion-full layout. */
+.peek-hint {
+  display: none;
+}
+
 .game-tile.is-peeking .peek-face {
   opacity: 1;
-  transform: translate(-50%, -44px) scale(1);
+  transform: translate(-50%, -56px) scale(1);
 }
 
 .peek-face__eye {
-  width: 4px;
-  height: 7px;
+  width: 6px;
+  height: 10px;
   border-radius: 50%;
   background: var(--lime-ink);
+  transform-origin: center 60%;
+  animation: whim-blink 4.2s ease-in-out infinite;
+}
+
+@keyframes whim-blink {
+  0%,
+  44%,
+  100% {
+    transform: scaleY(1);
+  }
+  48%,
+  52% {
+    transform: scaleY(0.12);
+  }
+  56% {
+    transform: scaleY(1);
+  }
 }
 
 .peek-face__smile {
   position: absolute;
-  bottom: 5px;
+  bottom: 7px;
   left: 50%;
-  width: 11px;
-  height: 5px;
-  border-bottom: 2px solid var(--lime-ink);
-  border-radius: 0 0 10px 10px;
+  width: 16px;
+  height: 7px;
+  border-bottom: 2.5px solid var(--lime-ink);
+  border-radius: 0 0 12px 12px;
   transform: translateX(-50%);
 }
+
+/* The wave: a brief staggered peek triggered from the hero, for people who
+   never think to hover a game card. JS toggles .is-peeking per card. */
 
 /* ------------------------------------------------------------- creator showcase */
 
@@ -1952,6 +1977,32 @@ a {
 
   .peek-face {
     display: none;
+  }
+
+  /* Reduced-motion static affordance: the featured card's mascot rests in
+     view permanently — visible, still, and unmistakably the same face — while
+     every other face stays hidden. No animation, no wave, no reveal. */
+  .game-tile--featured .peek-face {
+    display: flex;
+    opacity: 1;
+    transform: translate(-50%, -56px) scale(1);
+    transition: none;
+    animation: none;
+  }
+
+  .game-tile--featured .peek-face__eye {
+    animation: none;
+    transform: scaleY(1);
+  }
+
+  /* Static interaction hint for reduced-motion visitors, next to the
+     community section heading (hidden by default above). */
+  .peek-hint {
+    display: block;
+    margin-top: 8px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ink-2);
   }
 
   .game-tile:hover,

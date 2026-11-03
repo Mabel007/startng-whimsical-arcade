@@ -1,9 +1,10 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { COMMUNITY_GAMES, FAQS, NAV_LINKS } from './data/site'
 import { installMatchMedia } from './test/matchMedia'
+import { intersectionObserverMock } from './test/intersectionObserver'
 
 function getCommunityCards() {
   return [...document.querySelectorAll<HTMLElement>('.community-grid .game-tile')]
@@ -218,5 +219,275 @@ describe('community card peek', () => {
 
     expect(card).toHaveAttribute('data-peeking', 'false')
     expect(card).not.toHaveClass('is-peeking')
+  })
+})
+
+describe('playful wave and assisted reveal', () => {
+  beforeEach(() => {
+    installMatchMedia(false)
+    intersectionObserverMock.reset()
+    intersectionObserverMock.install()
+  })
+
+  afterEach(() => {
+    intersectionObserverMock.reset()
+  })
+
+  function peekingCards() {
+    return getCommunityCards().filter((card) => card.dataset.peeking === 'true')
+  }
+
+  function advance(ms: number) {
+    act(() => {
+      vi.advanceTimersByTime(ms)
+    })
+  }
+
+  /** fireEvent keeps Play-now clicks synchronous under vitest fake timers. */
+  function observeClickPlayNow() {
+    fireEvent.click(screen.getByRole('link', { name: 'Play now' }))
+  }
+
+  it('keeps Play now a real in-page anchor that does not wave off-screen', async () => {
+    render(<App />)
+
+    const playNow = screen.getByRole('link', { name: 'Play now' })
+    expect(playNow).toHaveAttribute('href', '#games')
+
+    // A real (user-level) click must still navigate to the section.
+    const user = userEvent.setup()
+    await user.click(playNow)
+    expect(window.location.hash).toBe('#games')
+
+    // No visibility signal yet: the wave must not have started.
+    expect(peekingCards()).toHaveLength(0)
+  })
+
+  it('does not fire the featured greeting while the card is off-screen', () => {
+    vi.useFakeTimers()
+    try {
+      render(<App />)
+
+      const [featuredCard] = getCommunityCards()
+      expect(featuredCard).toHaveClass('game-tile--featured')
+      expect(featuredCard).toHaveAttribute('data-peeking', 'false')
+
+      // Wall-clock time alone never triggers the reveal.
+      advance(5000)
+      expect(featuredCard).toHaveAttribute('data-peeking', 'false')
+
+      // A callback that reports "not intersecting" must stay a no-op.
+      act(() => {
+        intersectionObserverMock.trigger(featuredCard, false)
+      })
+      expect(featuredCard).toHaveAttribute('data-peeking', 'false')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('fires the greeting exactly once when the featured card becomes visible', () => {
+    vi.useFakeTimers()
+    try {
+      render(<App />)
+
+      const [featuredCard] = getCommunityCards()
+      act(() => {
+        intersectionObserverMock.trigger(featuredCard, true)
+      })
+      expect(featuredCard).toHaveAttribute('data-peeking', 'true')
+      expect(featuredCard).toHaveClass('is-peeking')
+
+      advance(1599)
+      expect(featuredCard).toHaveAttribute('data-peeking', 'true')
+      advance(1)
+      expect(featuredCard).toHaveAttribute('data-peeking', 'false')
+
+      // One-time greeting, not a loop.
+      advance(5000)
+      expect(featuredCard).toHaveAttribute('data-peeking', 'false')
+
+      // The observer disconnects after firing — a stale callback cannot
+      // replay the greeting.
+      expect(() => {
+        intersectionObserverMock.trigger(featuredCard, true)
+      }).toThrow(/No IntersectionObserver instance is observing/)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('cancels a pending greeting when the visitor interacts with the card', () => {
+    vi.useFakeTimers()
+    try {
+      render(<App />)
+
+      const [featuredCard] = getCommunityCards()
+
+      // A touch tap before any reveal interacts first and cancels it.
+      fireEvent.pointerDown(featuredCard, { pointerType: 'touch' })
+      expect(featuredCard).toHaveAttribute('data-peeking', 'true')
+
+      advance(900)
+      expect(featuredCard).toHaveAttribute('data-peeking', 'false')
+
+      // The cancelled reveal's observer no longer fires.
+      expect(() => {
+        intersectionObserverMock.trigger(featuredCard, true)
+      }).toThrow(/No IntersectionObserver instance is observing/)
+      expect(featuredCard).toHaveAttribute('data-peeking', 'false')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('waits for the community section to become visible, then waves in stagger', () => {
+    vi.useFakeTimers()
+    try {
+      render(<App />)
+
+      const section = document.getElementById('games')
+      expect(section).not.toBeNull()
+
+      observeClickPlayNow()
+      advance(2000)
+      expect(peekingCards()).toHaveLength(0)
+
+      act(() => {
+        intersectionObserverMock.trigger(section!, true)
+      })
+
+      // Card 0 starts at visibility; each card follows 110ms later.
+      advance(0)
+      expect(peekingCards()).toHaveLength(1)
+      advance(109)
+      expect(peekingCards()).toHaveLength(1)
+      advance(1)
+      expect(peekingCards()).toHaveLength(2)
+      advance(660)
+      expect(peekingCards()).toHaveLength(8)
+
+      advance(1000)
+      expect(peekingCards()).toHaveLength(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('has at least three cards actively peeking when the section is visible', () => {
+    vi.useFakeTimers()
+    try {
+      render(<App />)
+
+      observeClickPlayNow()
+      act(() => {
+        intersectionObserverMock.trigger(document.getElementById('games')!, true)
+      })
+      advance(330)
+
+      expect(peekingCards().length).toBeGreaterThanOrEqual(3)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('replays the wave on repeated Play now and ignores stale visibility callbacks', () => {
+    vi.useFakeTimers()
+    try {
+      render(<App />)
+
+      const section = document.getElementById('games')!
+
+      observeClickPlayNow()
+      act(() => {
+        intersectionObserverMock.trigger(section, true)
+      })
+      advance(50)
+      expect(peekingCards().length).toBeGreaterThan(0)
+
+      // Second activation mid-wave restarts the wave cleanly.
+      observeClickPlayNow()
+      advance(760)
+      expect(peekingCards().length).toBeGreaterThanOrEqual(3)
+
+      advance(2000)
+      expect(peekingCards()).toHaveLength(0)
+
+      // A stale "still visible" callback has no pending wave to start.
+      act(() => {
+        intersectionObserverMock.trigger(section, true)
+      })
+      advance(2000)
+      expect(peekingCards()).toHaveLength(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  }, 15_000)
+
+  it('stills everything for reduced motion and offers the static hint instead', () => {
+    installMatchMedia(true)
+    vi.useFakeTimers()
+    try {
+      render(<App />)
+
+      expect(screen.getByTestId('peek-hint')).toBeInTheDocument()
+
+      observeClickPlayNow()
+      act(() => {
+        intersectionObserverMock.trigger(document.getElementById('games')!, true)
+      })
+      advance(3000)
+      expect(peekingCards()).toHaveLength(0)
+
+      const [featuredCard] = getCommunityCards()
+      // Reduced motion never creates the featured-card observer at all.
+      expect(() => {
+        intersectionObserverMock.trigger(featuredCard, true)
+      }).toThrow(/No IntersectionObserver instance is observing/)
+      expect(featuredCard).toHaveAttribute('data-peeking', 'false')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('falls back to an untimed wave after Play now without IntersectionObserver', () => {
+    intersectionObserverMock.reset()
+    vi.useFakeTimers()
+    try {
+      render(<App />)
+
+      observeClickPlayNow()
+      advance(0)
+      expect(peekingCards()).toHaveLength(1)
+
+      advance(770)
+      expect(peekingCards()).toHaveLength(8)
+
+      advance(1000)
+      expect(peekingCards()).toHaveLength(0)
+    } finally {
+      vi.useRealTimers()
+      intersectionObserverMock.reset()
+    }
+  })
+
+  it('disconnects every observer on unmount', () => {
+    vi.useFakeTimers()
+    try {
+      const { unmount } = render(<App />)
+
+      // One for the featured greeting + one for the community section.
+      expect(intersectionObserverMock.instances).toHaveLength(2)
+
+      unmount()
+      expect(intersectionObserverMock.disconnectCalls).toBe(2)
+
+      // No observer may still fire after unmount.
+      expect(() => {
+        intersectionObserverMock.trigger(document.getElementById('games')!, true)
+      }).toThrow(/No IntersectionObserver instance is observing/)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

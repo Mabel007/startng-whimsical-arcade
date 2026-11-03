@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { CategoryTile } from './components/CategoryTile'
 import { CommunityGameCard } from './components/CommunityGameCard'
 import { CoverArt } from './components/CoverArt'
@@ -24,6 +25,59 @@ function Eyebrow({ children }: { readonly children: string }) {
 }
 
 export default function App() {
+  // "Play now" plays a wave of peeks across the community cards —
+  // the cards' resident greeting, delivered on demand. The wave waits for
+  // the community section to become visible, so the smooth scroll lands on
+  // cards that are actually peeking instead of an already-settled grid.
+  const sectionRef = useRef<HTMLElement | null>(null)
+  const [gamesVisible, setGamesVisible] = useState(
+    // Without IntersectionObserver there is no visibility signal — assume
+    // visible so the wave still plays after Play now.
+    typeof window === 'undefined' || typeof window.IntersectionObserver === 'undefined',
+  )
+  const [waveRequested, setWaveRequested] = useState(0)
+  const [waveNonce, setWaveNonce] = useState(0)
+  const playedWavesRef = useRef(0)
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.IntersectionObserver === 'undefined') {
+      return
+    }
+
+    const node = sectionRef.current
+    if (!node) {
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          setGamesVisible(true)
+        }
+      },
+      { threshold: 0.3 },
+    )
+    observer.observe(node)
+
+    return () => observer.disconnect()
+  }, [])
+
+  const requestWave = () => setWaveRequested((n) => n + 1)
+
+  // Each Play now click is played exactly once, and only once the section
+  // is visible. A stale visibility callback can never replay an old wave:
+  // without a pending request it changes nothing.
+  useEffect(() => {
+    if (waveRequested === 0 || !gamesVisible) {
+      return
+    }
+    if (playedWavesRef.current >= waveRequested) {
+      return
+    }
+    playedWavesRef.current = waveRequested
+    setWaveNonce((n) => n + 1)
+  }, [waveRequested, gamesVisible])
+
   return (
     <div className="page">
       <a className="skip-link" href="#games">
@@ -52,7 +106,12 @@ export default function App() {
           </p>
 
           <div className="hero__actions">
-            <a className="button button--dark" href="#games">
+            <a
+              className="button button--dark"
+              href="#games"
+              onClick={requestWave}
+              data-testid="hero-play-now"
+            >
               Play now
             </a>
             <a
@@ -140,7 +199,12 @@ export default function App() {
           </div>
         </section>
 
-        <section id="games" className="section section--community container" aria-labelledby="games-title">
+        <section
+          id="games"
+          ref={sectionRef}
+          className="section section--community container"
+          aria-labelledby="games-title"
+        >
           <div className="section-head">
             <div>
               <h2 id="games-title">Games from the community</h2>
@@ -148,12 +212,22 @@ export default function App() {
                 <span className="tag">Most played</span>
                 What everyone's playing this week
               </p>
+              <p className="peek-hint" data-testid="peek-hint">
+                The cards say hi — hover, tap or focus one. The featured card's
+                mascot rests in view, with no animation anywhere.
+              </p>
             </div>
           </div>
 
           <div className="community-grid">
-            {COMMUNITY_GAMES.map((game) => (
-              <CommunityGameCard key={game.id} game={game} />
+            {COMMUNITY_GAMES.map((game, index) => (
+              <CommunityGameCard
+                key={game.id}
+                game={game}
+                index={index}
+                waveNonce={waveNonce}
+                revealOnce={Boolean(game.featured)}
+              />
             ))}
           </div>
 
