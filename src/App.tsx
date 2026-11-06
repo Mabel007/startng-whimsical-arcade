@@ -51,8 +51,8 @@ export default function App() {
 
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries.some((entry) => entry.isIntersecting)) {
-          setGamesVisible(true)
+        for (const entry of entries) {
+          setGamesVisible(entry.isIntersecting)
         }
       },
       { threshold: 0.3 },

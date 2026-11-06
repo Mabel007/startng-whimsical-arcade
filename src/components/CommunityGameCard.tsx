@@ -9,16 +9,13 @@ import {
 import type { CommunityGame } from '../data/site'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { CoverArt } from './CoverArt'
+import { GameReaction, isGameReaction } from './GameReaction'
 
-/** Touch shows the same reaction briefly; mouse and keyboard hold it while active. */
 const TOUCH_PEEK_MS = 900
-
-/** The hero "wave" staggers a brief peek across every community card. */
 const WAVE_STAGGER_MS = 110
 const WAVE_HOLD_MS = 1000
-
-/** Featured cards greet visitors the moment their card scrolls into view. */
 const ASSISTED_REVEAL_HOLD_MS = 1600
+const REACTION_COOLDOWN_MS = 150
 
 export function CommunityGameCard({
   game,
@@ -28,9 +25,7 @@ export function CommunityGameCard({
 }: {
   readonly game: CommunityGame
   readonly index?: number
-  /** Bump to play a one-off staggered peek across all cards. 0 = never played. */
   readonly waveNonce?: number
-  /** Greet one assisted peek when the featured card first enters the viewport. */
   readonly revealOnce?: boolean
 }) {
   const prefersReducedMotion = usePrefersReducedMotion()
@@ -38,10 +33,11 @@ export function CommunityGameCard({
   const timer = useRef<number | null>(null)
   const cardRef = useRef<HTMLElement | null>(null)
   const observerRef = useRef<IntersectionObserver | null>(null)
-  // The greeting fires once per page lifecycle, and any direct interaction
-  // with the card cancels it before it has had the chance to start.
   const revealDoneRef = useRef(false)
   const revealCancelledRef = useRef(false)
+  const busyRef = useRef(false)
+  const lastWaveNonceRef = useRef(0)
+  const hasGameReaction = isGameReaction(game.id)
 
   let peeking = peek.active && !prefersReducedMotion
   if (peek.reduced !== prefersReducedMotion) {
@@ -124,15 +120,25 @@ export function CommunityGameCard({
     }
   }, [revealOnce, prefersReducedMotion, clearTimer])
 
+  const startReaction = useCallback(() => {
+    if (busyRef.current) {
+      return
+    }
+    busyRef.current = true
+    clearTimer()
+    setPeek({ active: true, reduced: prefersReducedMotion })
+    window.setTimeout(() => {
+      busyRef.current = false
+    }, REACTION_COOLDOWN_MS)
+  }, [clearTimer, prefersReducedMotion])
+
   const holdPeek = useCallback(() => {
     if (prefersReducedMotion) {
       return
     }
-
     cancelReveal()
-    clearTimer()
-    setPeek({ active: true, reduced: prefersReducedMotion })
-  }, [cancelReveal, clearTimer, prefersReducedMotion])
+    startReaction()
+  }, [cancelReveal, startReaction, prefersReducedMotion])
 
   const endPeek = useCallback(() => {
     clearTimer()
@@ -143,15 +149,13 @@ export function CommunityGameCard({
     if (prefersReducedMotion) {
       return
     }
-
     cancelReveal()
-    clearTimer()
-    setPeek({ active: true, reduced: prefersReducedMotion })
+    startReaction()
     timer.current = window.setTimeout(() => {
       setPeek((current) => ({ ...current, active: false }))
       timer.current = null
     }, TOUCH_PEEK_MS)
-  }, [cancelReveal, clearTimer, prefersReducedMotion])
+  }, [cancelReveal, startReaction, prefersReducedMotion])
 
   function handlePointerEnter(event: ReactPointerEvent<HTMLElement>) {
     if (event.pointerType !== 'touch') {
@@ -159,22 +163,61 @@ export function CommunityGameCard({
     }
   }
 
-  // Wave: a short, staggered peek across every community card.
+  // Wave: waits for each card to be visible before playing.
+  // Tracks the nonce so stale values never replay on motion toggle.
+  // Falls back to immediate play if IntersectionObserver is unavailable.
   useEffect(() => {
     if (waveNonce === 0 || prefersReducedMotion) {
       return
     }
 
-    const show = window.setTimeout(() => {
-      clearTimer()
-      setPeek({ active: true, reduced: prefersReducedMotion })
-      timer.current = window.setTimeout(() => {
-        setPeek((current) => ({ ...current, active: false }))
-        timer.current = null
-      }, WAVE_HOLD_MS)
-    }, index * WAVE_STAGGER_MS)
+    if (waveNonce === lastWaveNonceRef.current) {
+      return
+    }
+    lastWaveNonceRef.current = waveNonce
 
-    return () => window.clearTimeout(show)
+    const node = cardRef.current
+    if (!node || typeof window === 'undefined') {
+      return
+    }
+
+    const playWave = () => {
+      const show = window.setTimeout(() => {
+        clearTimer()
+        setPeek({ active: true, reduced: prefersReducedMotion })
+        timer.current = window.setTimeout(() => {
+          setPeek((current) => ({ ...current, active: false }))
+          timer.current = null
+        }, WAVE_HOLD_MS)
+      }, index * WAVE_STAGGER_MS)
+
+      timer.current = show
+    }
+
+    // Fallback: if no IntersectionObserver, play immediately
+    if (typeof window.IntersectionObserver === 'undefined') {
+      playWave()
+      return
+    }
+
+    let consumed = false
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (consumed) return
+        if (entries.some((entry) => entry.isIntersecting)) {
+          consumed = true
+          observer.disconnect()
+          playWave()
+        }
+      },
+      { threshold: 0.2 },
+    )
+
+    observer.observe(node)
+
+    return () => {
+      observer.disconnect()
+    }
   }, [waveNonce, index, prefersReducedMotion, clearTimer])
 
   function handlePointerLeave(event: ReactPointerEvent<HTMLElement>) {
@@ -202,11 +245,15 @@ export function CommunityGameCard({
     endPeek()
   }
 
+  const showGameReaction = hasGameReaction && peeking
+  const showGenericPeek = !hasGameReaction
+
   return (
     <article
       ref={cardRef}
-      className={`game-tile${game.featured ? ' game-tile--featured' : ''}${peeking ? ' is-peeking' : ''}`}
+      className={`game-tile${game.featured ? ' game-tile--featured' : ''}${peeking ? ' is-peeking' : ''}${hasGameReaction ? ' game-tile--reaction' : ''}`}
       data-peeking={peeking ? 'true' : 'false'}
+      data-reaction={showGameReaction ? game.id : undefined}
       onPointerEnter={handlePointerEnter}
       onPointerLeave={handlePointerLeave}
       onPointerDown={handlePointerDown}
@@ -216,11 +263,20 @@ export function CommunityGameCard({
       <a className="game-tile__link" href={game.href}>
         <span className="game-tile__cover">
           <CoverArt theme={game.theme} mark={game.mark} image={game.image} />
-          <span className="peek-face" aria-hidden="true">
-            <span className="peek-face__eye" />
-            <span className="peek-face__eye" />
-            <span className="peek-face__smile" />
-          </span>
+
+          {showGenericPeek && (
+            <span className="peek-face" aria-hidden="true">
+              <span className="peek-face__eye" />
+              <span className="peek-face__eye" />
+              <span className="peek-face__smile" />
+            </span>
+          )}
+
+          {hasGameReaction && (
+            <span className="game-reaction" aria-hidden="true">
+              <GameReaction gameId={game.id} reacting={peeking} />
+            </span>
+          )}
         </span>
         <span className="game-tile__info">
           <span className="game-tile__title">{game.title}</span>
@@ -244,6 +300,34 @@ export function CommunityGameCard({
           {game.cta}
         </a>
       </span>
+
+      {hasGameReaction && (
+        <button
+          type="button"
+          className="game-tile__preview"
+          aria-label={`Preview ${game.title} reaction`}
+          onClick={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+            tapPeek()
+          }}
+          onPointerDown={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+          }}
+        >
+          <svg viewBox="0 0 20 20" aria-hidden="true" width="14" height="14">
+            <path
+              d="M10 3C5 3 1.7 7 1 10c.7 3 4 7 9 7s8.3-4 9-7c-.7-3-4-7-9-7z"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+            />
+            <circle cx="10" cy="10" r="3" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          </svg>
+          <span>Preview</span>
+        </button>
+      )}
     </article>
   )
 }

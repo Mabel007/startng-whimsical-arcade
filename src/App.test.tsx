@@ -66,11 +66,19 @@ describe('start.ng homepage', () => {
   it('keeps every peek face decorative and out of the accessible name', () => {
     render(<App />)
 
+    // 5 cards have the generic peek face; 3 have game-specific reactions
     const faces = document.querySelectorAll('.peek-face')
-    expect(faces).toHaveLength(COMMUNITY_GAMES.length)
+    expect(faces).toHaveLength(5)
 
     for (const face of faces) {
       expect(face).toHaveAttribute('aria-hidden', 'true')
+    }
+
+    // Game reactions are also decorative
+    const reactions = document.querySelectorAll('.game-reaction')
+    expect(reactions).toHaveLength(3)
+    for (const reaction of reactions) {
+      expect(reaction).toHaveAttribute('aria-hidden', 'true')
     }
 
     expect(screen.getByRole('link', { name: 'The Hangout' })).toBeInTheDocument()
@@ -353,9 +361,18 @@ describe('playful wave and assisted reveal', () => {
       advance(2000)
       expect(peekingCards()).toHaveLength(0)
 
+      // Trigger visibility for the section
       act(() => {
         intersectionObserverMock.trigger(section!, true)
       })
+
+      // Now trigger visibility for each card (the wave waits for each card)
+      const cards = getCommunityCards()
+      for (const card of cards) {
+        act(() => {
+          intersectionObserverMock.trigger(card, true)
+        })
+      }
 
       // Card 0 starts at visibility; each card follows 110ms later.
       advance(0)
@@ -383,6 +400,15 @@ describe('playful wave and assisted reveal', () => {
       act(() => {
         intersectionObserverMock.trigger(document.getElementById('games')!, true)
       })
+
+      // Trigger visibility for the first few cards
+      const cards = getCommunityCards()
+      for (const card of cards.slice(0, 4)) {
+        act(() => {
+          intersectionObserverMock.trigger(card, true)
+        })
+      }
+
       advance(330)
 
       expect(peekingCards().length).toBeGreaterThanOrEqual(3)
@@ -402,11 +428,28 @@ describe('playful wave and assisted reveal', () => {
       act(() => {
         intersectionObserverMock.trigger(section, true)
       })
+
+      // Trigger visibility for all cards
+      const cards = getCommunityCards()
+      for (const card of cards) {
+        act(() => {
+          intersectionObserverMock.trigger(card, true)
+        })
+      }
+
       advance(50)
       expect(peekingCards().length).toBeGreaterThan(0)
 
       // Second activation mid-wave restarts the wave cleanly.
       observeClickPlayNow()
+
+      // Need to re-trigger card observers for the new wave
+      for (const card of cards) {
+        act(() => {
+          intersectionObserverMock.trigger(card, true)
+        })
+      }
+
       advance(760)
       expect(peekingCards().length).toBeGreaterThanOrEqual(3)
 
