@@ -1,10 +1,3 @@
-const GAME_REACTION_IDS = ['lagos-bike-rush', 'boju-boju', 'job-hunt'] as const
-export type GameReactionId = (typeof GAME_REACTION_IDS)[number]
-
-export function isGameReaction(gameId: string): gameId is GameReactionId {
-  return (GAME_REACTION_IDS as readonly string[]).includes(gameId)
-}
-
 function LagosBikeRush({ reacting }: { readonly reacting: boolean }) {
   return (
     <svg
@@ -54,7 +47,8 @@ function LagosBikeRush({ reacting }: { readonly reacting: boolean }) {
         </g>
       )}
 
-      <g className="game-reaction__bike" transform="translate(55 58)">
+      <g transform="translate(55 58)">
+      <g className="game-reaction__bike">
         <circle cx="16" cy="40" r="11" fill="#120a1c" stroke="#ffb703" strokeWidth="2" />
         <circle cx="16" cy="40" r="3.5" fill="#ff9ec4" />
         <circle cx="72" cy="40" r="11" fill="#120a1c" stroke="#ffb703" strokeWidth="2" />
@@ -74,6 +68,7 @@ function LagosBikeRush({ reacting }: { readonly reacting: boolean }) {
         <path d="M28 22c4-10 14-12 22-6 4 3 6 8 6 12l-8 4-14-2z" fill="#ff6b8a" />
         <path d="M44 18c-2-8 4-14 10-14 8-2 12 4 12 10" fill="none" stroke="#2b1136" strokeWidth="5" strokeLinecap="round" />
         <circle cx="56" cy="8" r="7" fill="#ffc44d" stroke="#2b1136" strokeWidth="2" />
+      </g>
       </g>
     </svg>
   )
@@ -107,7 +102,7 @@ function BojuBoju({ reacting }: { readonly reacting: boolean }) {
         <path d="M0 60h200M0 100h200" />
       </g>
 
-      <g transform="translate(58 38)">
+      <g transform="translate(48 32) scale(1.25)">
         <ellipse cx="28" cy="72" rx="30" ry="5" fill="#04120e" opacity="0.35" />
 
         <path
@@ -124,14 +119,15 @@ function BojuBoju({ reacting }: { readonly reacting: boolean }) {
             fill="#24110c"
           />
           <g fill="#fff4e3">
-            <circle cx="19" cy="20" r="2" />
-            <circle cx="27" cy="20" r="2" />
+            <circle cx="19" cy="20" r="2.6" />
+            <circle cx="27" cy="20" r="2.6" />
           </g>
           <g className="game-reaction__pupils" fill="#0a0412">
             <circle cx="19.4" cy="20" r="1" />
             <circle cx="27.4" cy="20" r="1" />
           </g>
           <path d="M20 25c2 1.2 4 1.2 5 0" stroke="#fff4e3" strokeWidth="1.2" strokeLinecap="round" fill="none" />
+          <path d="M16 15l5-1M25 14l5 1" stroke="#24110c" strokeWidth="1.4" strokeLinecap="round" />
         </g>
       </g>
 
@@ -190,7 +186,7 @@ function JobHunt({ reacting }: { readonly reacting: boolean }) {
         <rect x="0" y="0" width="50" height="36" rx="3" fill="#effcff" stroke="#0b1f3a" strokeWidth="2.5" />
         <rect x="8" y="7" width="16" height="8" rx="1.5" fill="#55e7ff" opacity="0.7" />
         <text x="36" y="14" textAnchor="middle" fontFamily="ui-monospace, monospace" fontSize="7" fontWeight="700" fill="#0b1f3a">
-          CV
+          OPEN
         </text>
         <g stroke="#0b1f3a" strokeWidth="1.2" strokeLinecap="round" opacity="0.5">
           <path d="M8 22h34M8 27h30M8 32h20" />

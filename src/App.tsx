@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { usePrefersReducedMotion } from './hooks/usePrefersReducedMotion'
 import { CategoryTile } from './components/CategoryTile'
 import { CommunityGameCard } from './components/CommunityGameCard'
 import { CoverArt } from './components/CoverArt'
@@ -25,6 +26,7 @@ function Eyebrow({ children }: { readonly children: string }) {
 }
 
 export default function App() {
+  const prefersReducedMotion = usePrefersReducedMotion()
   // "Play now" plays a wave of peeks across the community cards —
   // the cards' resident greeting, delivered on demand. The wave waits for
   // the community section to become visible, so the smooth scroll lands on
@@ -62,13 +64,19 @@ export default function App() {
     return () => observer.disconnect()
   }, [])
 
-  const requestWave = () => setWaveRequested((n) => n + 1)
+  const requestWave = () => {
+    if (!prefersReducedMotion) setWaveRequested((n) => n + 1)
+  }
+
+  useEffect(() => {
+    if (prefersReducedMotion) playedWavesRef.current = waveRequested
+  }, [prefersReducedMotion, waveRequested])
 
   // Each Play now click is played exactly once, and only once the section
   // is visible. A stale visibility callback can never replay an old wave:
   // without a pending request it changes nothing.
   useEffect(() => {
-    if (waveRequested === 0 || !gamesVisible) {
+    if (prefersReducedMotion || waveRequested === 0 || !gamesVisible) {
       return
     }
     if (playedWavesRef.current >= waveRequested) {
@@ -76,7 +84,7 @@ export default function App() {
     }
     playedWavesRef.current = waveRequested
     setWaveNonce((n) => n + 1)
-  }, [waveRequested, gamesVisible])
+  }, [waveRequested, gamesVisible, prefersReducedMotion])
 
   return (
     <div className="page">

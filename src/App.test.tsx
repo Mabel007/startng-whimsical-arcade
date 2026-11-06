@@ -315,11 +315,11 @@ describe('playful wave and assisted reveal', () => {
       advance(5000)
       expect(featuredCard).toHaveAttribute('data-peeking', 'false')
 
-      // The observer disconnects after firing — a stale callback cannot
-      // replay the greeting.
-      expect(() => {
+      // Visibility remains observed for cancellation, but never repeats a greeting.
+      act(() => {
         intersectionObserverMock.trigger(featuredCard, true)
-      }).toThrow(/No IntersectionObserver instance is observing/)
+      })
+      expect(featuredCard).toHaveAttribute('data-peeking', 'false')
     } finally {
       vi.useRealTimers()
     }
@@ -339,10 +339,10 @@ describe('playful wave and assisted reveal', () => {
       advance(900)
       expect(featuredCard).toHaveAttribute('data-peeking', 'false')
 
-      // The cancelled reveal's observer no longer fires.
-      expect(() => {
+      // Visibility callbacks cannot revive a greeting cancelled by direct input.
+      act(() => {
         intersectionObserverMock.trigger(featuredCard, true)
-      }).toThrow(/No IntersectionObserver instance is observing/)
+      })
       expect(featuredCard).toHaveAttribute('data-peeking', 'false')
     } finally {
       vi.useRealTimers()
@@ -384,7 +384,7 @@ describe('playful wave and assisted reveal', () => {
       advance(660)
       expect(peekingCards()).toHaveLength(8)
 
-      advance(1000)
+      advance(1600)
       expect(peekingCards()).toHaveLength(0)
     } finally {
       vi.useRealTimers()
@@ -483,11 +483,29 @@ describe('playful wave and assisted reveal', () => {
       expect(peekingCards()).toHaveLength(0)
 
       const [featuredCard] = getCommunityCards()
-      // Reduced motion never creates the featured-card observer at all.
-      expect(() => {
+      // Visibility tracking continues, but cannot start a reduced-motion greeting.
+      act(() => {
         intersectionObserverMock.trigger(featuredCard, true)
-      }).toThrow(/No IntersectionObserver instance is observing/)
+      })
       expect(featuredCard).toHaveAttribute('data-peeking', 'false')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('never queues a reduced-motion Play now for preference restoration', () => {
+    const media = installMatchMedia(true)
+    vi.useFakeTimers()
+    try {
+      render(<App />)
+      observeClickPlayNow()
+      act(() => {
+        intersectionObserverMock.trigger(document.getElementById('games')!, true)
+        for (const card of getCommunityCards()) intersectionObserverMock.trigger(card, true)
+        media.setMatches(false)
+      })
+      advance(3000)
+      expect(peekingCards()).toHaveLength(0)
     } finally {
       vi.useRealTimers()
     }
@@ -506,7 +524,7 @@ describe('playful wave and assisted reveal', () => {
       advance(770)
       expect(peekingCards()).toHaveLength(8)
 
-      advance(1000)
+      advance(1600)
       expect(peekingCards()).toHaveLength(0)
     } finally {
       vi.useRealTimers()
@@ -519,11 +537,12 @@ describe('playful wave and assisted reveal', () => {
     try {
       const { unmount } = render(<App />)
 
-      // One for the featured greeting + one for the community section.
-      expect(intersectionObserverMock.instances).toHaveLength(2)
+      // One visibility observer per card plus the section visibility gate.
+      expect(intersectionObserverMock.instances).toHaveLength(9)
 
       unmount()
-      expect(intersectionObserverMock.disconnectCalls).toBe(2)
+      expect(intersectionObserverMock.disconnectCalls).toBe(9)
+      expect(vi.getTimerCount()).toBe(0)
 
       // No observer may still fire after unmount.
       expect(() => {

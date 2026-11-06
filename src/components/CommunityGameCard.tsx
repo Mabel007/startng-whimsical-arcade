@@ -1,257 +1,46 @@
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type FocusEvent as ReactFocusEvent,
-  type PointerEvent as ReactPointerEvent,
-} from 'react'
+import type { CSSProperties, FocusEvent as ReactFocusEvent, PointerEvent as ReactPointerEvent } from 'react'
 import type { CommunityGame } from '../data/site'
-import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
+import { useCardReaction } from '../hooks/useCardReaction'
+import { isGameReaction } from '../lib/gameReactions'
 import { CoverArt } from './CoverArt'
-import { GameReaction, isGameReaction } from './GameReaction'
+import { GameReaction } from './GameReaction'
 
-const TOUCH_PEEK_MS = 900
-const WAVE_STAGGER_MS = 110
-const WAVE_HOLD_MS = 1000
-const ASSISTED_REVEAL_HOLD_MS = 1600
-const REACTION_COOLDOWN_MS = 150
-
-export function CommunityGameCard({
-  game,
-  index = 0,
-  waveNonce = 0,
-  revealOnce = false,
-}: {
+export function CommunityGameCard({ game, index = 0, waveNonce = 0, revealOnce = false }: {
   readonly game: CommunityGame
   readonly index?: number
   readonly waveNonce?: number
   readonly revealOnce?: boolean
 }) {
-  const prefersReducedMotion = usePrefersReducedMotion()
-  const [peek, setPeek] = useState({ active: false, reduced: prefersReducedMotion })
-  const timer = useRef<number | null>(null)
-  const cardRef = useRef<HTMLElement | null>(null)
-  const observerRef = useRef<IntersectionObserver | null>(null)
-  const revealDoneRef = useRef(false)
-  const revealCancelledRef = useRef(false)
-  const busyRef = useRef(false)
-  const lastWaveNonceRef = useRef(0)
+  const { cardRef, active: peeking, revision, duration, hold, preview, leave } =
+    useCardReaction(game.id, index, waveNonce, revealOnce)
   const hasGameReaction = isGameReaction(game.id)
-
-  let peeking = peek.active && !prefersReducedMotion
-  if (peek.reduced !== prefersReducedMotion) {
-    peeking = false
-    setPeek({ active: false, reduced: prefersReducedMotion })
-  }
-
-  const clearTimer = useCallback(() => {
-    if (timer.current !== null) {
-      window.clearTimeout(timer.current)
-      timer.current = null
-    }
-  }, [])
-
-  useEffect(() => clearTimer, [clearTimer])
-
-  useEffect(() => {
-    if (prefersReducedMotion) {
-      clearTimer()
-    }
-  }, [clearTimer, prefersReducedMotion])
-
-  const cancelReveal = useCallback(() => {
-    revealCancelledRef.current = true
-    if (observerRef.current) {
-      observerRef.current.disconnect()
-      observerRef.current = null
-    }
-  }, [])
-
-  // One-time greeting when the featured card enters the viewport — not on a
-  // page-load timer, so it is visible when it plays. Cancelled the moment
-  // visitors interact themselves; skipped entirely for reduced motion.
-  useEffect(() => {
-    if (!revealOnce || prefersReducedMotion || revealDoneRef.current) {
-      return
-    }
-
-    const node = cardRef.current
-    if (!node) {
-      return
-    }
-
-    // Browsers without IntersectionObserver never get the unsolicited peek;
-    // visitors can still reveal the face themselves by interacting.
-    if (typeof window === 'undefined' || typeof window.IntersectionObserver === 'undefined') {
-      return
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries.some((entry) => entry.isIntersecting)) {
-          return
-        }
-        // Fire once, then stop watching entirely.
-        observer.disconnect()
-        observerRef.current = null
-
-        if (revealDoneRef.current || revealCancelledRef.current) {
-          return
-        }
-        revealDoneRef.current = true
-
-        clearTimer()
-        setPeek({ active: true, reduced: prefersReducedMotion })
-        timer.current = window.setTimeout(() => {
-          setPeek((current) => ({ ...current, active: false }))
-          timer.current = null
-        }, ASSISTED_REVEAL_HOLD_MS)
-      },
-      { threshold: 0.35 },
-    )
-
-    observerRef.current = observer
-    observer.observe(node)
-
-    return () => {
-      observer.disconnect()
-      observerRef.current = null
-    }
-  }, [revealOnce, prefersReducedMotion, clearTimer])
-
-  const startReaction = useCallback(() => {
-    if (busyRef.current) {
-      return
-    }
-    busyRef.current = true
-    clearTimer()
-    setPeek({ active: true, reduced: prefersReducedMotion })
-    window.setTimeout(() => {
-      busyRef.current = false
-    }, REACTION_COOLDOWN_MS)
-  }, [clearTimer, prefersReducedMotion])
-
-  const holdPeek = useCallback(() => {
-    if (prefersReducedMotion) {
-      return
-    }
-    cancelReveal()
-    startReaction()
-  }, [cancelReveal, startReaction, prefersReducedMotion])
-
-  const endPeek = useCallback(() => {
-    clearTimer()
-    setPeek((current) => ({ ...current, active: false }))
-  }, [clearTimer])
-
-  const tapPeek = useCallback(() => {
-    if (prefersReducedMotion) {
-      return
-    }
-    cancelReveal()
-    startReaction()
-    timer.current = window.setTimeout(() => {
-      setPeek((current) => ({ ...current, active: false }))
-      timer.current = null
-    }, TOUCH_PEEK_MS)
-  }, [cancelReveal, startReaction, prefersReducedMotion])
-
-  function handlePointerEnter(event: ReactPointerEvent<HTMLElement>) {
-    if (event.pointerType !== 'touch') {
-      holdPeek()
-    }
-  }
-
-  // Wave: waits for each card to be visible before playing.
-  // Tracks the nonce so stale values never replay on motion toggle.
-  // Falls back to immediate play if IntersectionObserver is unavailable.
-  useEffect(() => {
-    if (waveNonce === 0 || prefersReducedMotion) {
-      return
-    }
-
-    if (waveNonce === lastWaveNonceRef.current) {
-      return
-    }
-    lastWaveNonceRef.current = waveNonce
-
-    const node = cardRef.current
-    if (!node || typeof window === 'undefined') {
-      return
-    }
-
-    const playWave = () => {
-      const show = window.setTimeout(() => {
-        clearTimer()
-        setPeek({ active: true, reduced: prefersReducedMotion })
-        timer.current = window.setTimeout(() => {
-          setPeek((current) => ({ ...current, active: false }))
-          timer.current = null
-        }, WAVE_HOLD_MS)
-      }, index * WAVE_STAGGER_MS)
-
-      timer.current = show
-    }
-
-    // Fallback: if no IntersectionObserver, play immediately
-    if (typeof window.IntersectionObserver === 'undefined') {
-      playWave()
-      return
-    }
-
-    let consumed = false
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (consumed) return
-        if (entries.some((entry) => entry.isIntersecting)) {
-          consumed = true
-          observer.disconnect()
-          playWave()
-        }
-      },
-      { threshold: 0.2 },
-    )
-
-    observer.observe(node)
-
-    return () => {
-      observer.disconnect()
-    }
-  }, [waveNonce, index, prefersReducedMotion, clearTimer])
-
-  function handlePointerLeave(event: ReactPointerEvent<HTMLElement>) {
-    if (event.pointerType !== 'touch') {
-      endPeek()
-    }
-  }
-
-  function handlePointerDown(event: ReactPointerEvent<HTMLElement>) {
-    if (event.pointerType === 'touch') {
-      tapPeek()
-    }
-  }
-
-  function handleFocus() {
-    holdPeek()
-  }
-
-  function handleBlur(event: ReactFocusEvent<HTMLElement>) {
-    const nextTarget = event.relatedTarget
-    if (nextTarget instanceof Node && event.currentTarget.contains(nextTarget)) {
-      return
-    }
-
-    endPeek()
-  }
-
   const showGameReaction = hasGameReaction && peeking
   const showGenericPeek = !hasGameReaction
+
+  function handlePointerEnter(event: ReactPointerEvent<HTMLElement>) {
+    if (event.pointerType !== 'touch') hold()
+  }
+  function handlePointerLeave(event: ReactPointerEvent<HTMLElement>) {
+    if (event.pointerType !== 'touch') leave()
+  }
+  function handlePointerDown(event: ReactPointerEvent<HTMLElement>) {
+    if (event.pointerType === 'touch') preview()
+  }
+  function handleFocus(event: ReactFocusEvent<HTMLElement>) {
+    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return
+    hold()
+  }
+  function handleBlur(event: ReactFocusEvent<HTMLElement>) {
+    if (event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget)) return
+    leave()
+  }
 
   return (
     <article
       ref={cardRef}
       className={`game-tile${game.featured ? ' game-tile--featured' : ''}${peeking ? ' is-peeking' : ''}${hasGameReaction ? ' game-tile--reaction' : ''}`}
+      style={{ '--reaction-duration': `${duration}ms` } as CSSProperties}
+      data-revision={revision}
       data-peeking={peeking ? 'true' : 'false'}
       data-reaction={showGameReaction ? game.id : undefined}
       onPointerEnter={handlePointerEnter}
@@ -265,7 +54,7 @@ export function CommunityGameCard({
           <CoverArt theme={game.theme} mark={game.mark} image={game.image} />
 
           {showGenericPeek && (
-            <span className="peek-face" aria-hidden="true">
+            <span key={revision} className="peek-face" aria-hidden="true">
               <span className="peek-face__eye" />
               <span className="peek-face__eye" />
               <span className="peek-face__smile" />
@@ -274,7 +63,7 @@ export function CommunityGameCard({
 
           {hasGameReaction && (
             <span className="game-reaction" aria-hidden="true">
-              <GameReaction gameId={game.id} reacting={peeking} />
+              <GameReaction key={revision} gameId={game.id} reacting={peeking} />
             </span>
           )}
         </span>
@@ -307,12 +96,10 @@ export function CommunityGameCard({
           className="game-tile__preview"
           aria-label={`Preview ${game.title} reaction`}
           onClick={(e) => {
-            e.preventDefault()
             e.stopPropagation()
-            tapPeek()
+            preview()
           }}
           onPointerDown={(e) => {
-            e.preventDefault()
             e.stopPropagation()
           }}
         >

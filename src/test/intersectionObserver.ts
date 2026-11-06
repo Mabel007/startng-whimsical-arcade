@@ -33,7 +33,7 @@ export const intersectionObserverMock = {
   },
 
   install() {
-    const mock = this
+    const mock = intersectionObserverMock
     ;(globalThis as { IntersectionObserver?: unknown }).IntersectionObserver =
       class FakeIntersectionObserver {
         readonly callback: IntersectionObserverCallback
